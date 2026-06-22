@@ -495,10 +495,10 @@ document.addEventListener('DOMContentLoaded', () => {
       rows += `<tr><td class="c">${idx+1}</td><td class="l">${item.description||''}</td>
         <td class="c">${item.quantity!=null?item.quantity:''}</td><td class="c">${item.unit||''}</td>
         <td class="r">${item.unitPrice?item.unitPrice.toLocaleString():''}</td>
-        <td class="r">${lt?lt.toLocaleString():''}</td><td class="l">${item.remark||''}</td></tr>`;
+        <td class="r" colspan="3">${lt?lt.toLocaleString():''}</td><td class="l">${item.remark||''}</td></tr>`;
     });
     for (let i = q.items.length; i < 27; i++) {
-      rows += `<tr><td class="c">${i+1}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      rows += `<tr><td class="c">${i+1}</td><td></td><td></td><td></td><td></td><td colspan="3"></td><td></td></tr>`;
     }
 
     // 顯示數字位（隱藏前置零）
@@ -584,12 +584,12 @@ h2{text-align:center;font-size:18pt;font-weight:bold;letter-spacing:8px;margin-b
 <thead>
 <tr>
   <th width="5%">項目</th>
-  <th width="39%">名　稱</th>
+  <th width="38%">名　稱</th>
   <th width="8%">數量</th>
   <th width="7%">單位</th>
-  <th width="13%">單價</th>
-  <th width="13%">總價</th>
-  <th width="15%">備註</th>
+  <th width="12%">單價</th>
+  <th colspan="3" width="14%">總價</th>
+  <th width="16%">備註</th>
 </tr>
 </thead>
 <tbody>
@@ -602,7 +602,9 @@ ${rows}
   <td class="dg"><span class="lbl">佰</span><span class="val">${showD(0)}</span></td>
   <td class="dg"><span class="lbl">拾</span><span class="val">${showD(1)}</span></td>
   <td class="dg"><span class="lbl">萬</span><span class="val">${d[2]}</span></td>
-  <td class="dg dg-m"><span class="lbl">仟　佰　拾</span><span class="val">${d[3]}　${d[4]}　${d[5]}</span></td>
+  <td class="dg"><span class="lbl">仟</span><span class="val">${d[3]}</span></td>
+  <td class="dg"><span class="lbl">佰</span><span class="val">${d[4]}</span></td>
+  <td class="dg"><span class="lbl">拾</span><span class="val">${d[5]}</span></td>
   <td class="dg"><span class="lbl">NT</span><span class="val">${d[6]}</span></td>
 </tr>
 </tbody>
@@ -667,22 +669,22 @@ ${q.remarks?`<p style="margin-top:9px;font-size:9.5pt"><b>備註：</b>${q.remar
 
     // ── 組裝資料 ──
     const dt = [];
-    dt[R_CO]  = [company.name||'公司名稱', null,null,null,null,null,null];
-    dt[R_TI]  = ['估　價　單',             null,null,null,null,null,null];
-    // info row 1：左A:C=業主, D=工作地點標籤, E:G=地址值
-    dt[R_I1]  = [`業主：${q.customerContactName||''}`, null, null,
-                 '工作地點', q.customerAddress||'', null, null];
-    // info row 2：左A:C=工程名稱, D=估價日期標籤, E:G=日期值
-    dt[R_I2]  = [`工程名稱：${q.projectName||''}`, null, null,
-                 '估價日期', fmtMinguo(q.date), null, null];
-    dt[R_HDR] = ['項目','名　稱','數量','單位','單價','總價','備註'];
+    dt[R_CO]  = [company.name||'公司名稱', null,null,null,null,null,null,null,null];
+    dt[R_TI]  = ['估　價　單',             null,null,null,null,null,null,null,null];
+    // info row 1：左A:D=業主, E=工作地點標籤, F:I=地址值
+    dt[R_I1]  = [`業主：${q.customerContactName||''}`, null, null, null,
+                 '工作地點', q.customerAddress||'', null, null, null];
+    // info row 2：左A:D=工程名稱, E=估價日期標籤, F:I=日期值
+    dt[R_I2]  = [`工程名稱：${q.projectName||''}`, null, null, null,
+                 '估價日期', fmtMinguo(q.date), null, null, null];
+    dt[R_HDR] = ['項目','名　稱','數量','單位','單價','總價',null,null,'備註'];
 
     for (let i = 0; i < NITEMS; i++) {
       const item = q.items[i];
       dt[R_IS+i] = item
         ? [i+1, item.description||'', item.quantity||null, item.unit||'',
-           item.unitPrice||null, (item.quantity*item.unitPrice)||null, item.remark||'']
-        : [i+1, null, null, null, null, null, null];
+           item.unitPrice||null, (item.quantity*item.unitPrice)||null, null, null, item.remark||'']
+        : [i+1, null, null, null, null, null, null, null, null];
     }
 
     // 總價合計：單行，各格「標籤\n數字」（換行顯示，與圖片相符）
@@ -691,14 +693,16 @@ ${q.remarks?`<p style="margin-top:9px;font-size:9.5pt"><b>備註：</b>${q.remar
       `佰\n${sD(0)}`,
       `拾\n${sD(1)}`,
       `萬\n${d[2]}`,
-      `仟  佰  拾\n${d[3]}  ${d[4]}  ${d[5]}`,
+      `仟\n${d[3]}`,
+      `佰\n${d[4]}`,
+      `拾\n${d[5]}`,
       `NT\n${d[6]}`
     ];
 
-    dt[R_F1] = [`地址：${company.address||''}`,       null,
+    dt[R_F1] = [`地址：${company.address||''}`,       null, null, null,
                 `統一編號：${company.taxId||''}`,      null,
                 '第　　頁，共　　頁', null, null];
-    dt[R_F2] = [`電話：${company.phone||''}`,          null,
+    dt[R_F2] = [`電話：${company.phone||''}`,          null, null, null,
                 `傳真：${company.fax||''}`,            null,
                 `經理人：${company.agent||''}`,        null, null];
 
@@ -722,27 +726,27 @@ ${q.remarks?`<p style="margin-top:9px;font-size:9.5pt"><b>備註：</b>${q.remar
     sc(R_TI, 0, {font:fn(18,true), alignment:al('center')});
 
     // Info row 1（業主 / 工作地點 / 地址）
-    // A:C 業主
-    for (let c=0;c<3;c++) sc(R_I1, c, {font:fn(11), alignment:al('left','center'), border:bdB('thin')});
-    // D 工作地點標籤（左邊加豎線分隔）
-    sc(R_I1, 3, {font:fn(11), alignment:al('center','center'), border:{bottom:{style:'thin'},left:{style:'thin'}}});
-    // E:G 地址值
-    for (let c=4;c<7;c++) sc(R_I1, c, {font:fn(11), alignment:al('left','center'), border:bdB('thin')});
+    // A:D 業主
+    for (let c=0;c<4;c++) sc(R_I1, c, {font:fn(11), alignment:al('left','center'), border:bdB('thin')});
+    // E 工作地點標籤（左邊加豎線分隔）
+    sc(R_I1, 4, {font:fn(11), alignment:al('center','center'), border:{bottom:{style:'thin'},left:{style:'thin'}}});
+    // F:I 地址值
+    for (let c=5;c<9;c++) sc(R_I1, c, {font:fn(11), alignment:al('left','center'), border:bdB('thin')});
 
     // Info row 2（工程名稱 / 估價日期 / 日期值）
-    for (let c=0;c<3;c++) sc(R_I2, c, {font:fn(11), alignment:al('left','center'), border:bdB('medium')});
-    sc(R_I2, 3, {font:fn(11), alignment:al('center','center'), border:{bottom:{style:'medium'},left:{style:'thin'}}});
-    // E:G 日期靠右
-    for (let c=4;c<7;c++) sc(R_I2, c, {font:fn(11), alignment:al('right','center'), border:bdB('medium')});
+    for (let c=0;c<4;c++) sc(R_I2, c, {font:fn(11), alignment:al('left','center'), border:bdB('medium')});
+    sc(R_I2, 4, {font:fn(11), alignment:al('center','center'), border:{bottom:{style:'medium'},left:{style:'thin'}}});
+    // F:I 日期靠右
+    for (let c=5;c<9;c++) sc(R_I2, c, {font:fn(11), alignment:al('right','center'), border:bdB('medium')});
 
     // 欄位表頭
-    const hAl = ['center','left','center','center','right','right','left'];
-    for (let c=0;c<7;c++) sc(R_HDR, c, {font:fn(11,true), alignment:al(hAl[c]), border:bd('thin')});
+    const hAl = ['center','left','center','center','right','center','center','center','left'];
+    for (let c=0;c<9;c++) sc(R_HDR, c, {font:fn(11,true), alignment:al(hAl[c]), border:bd('thin')});
 
     // 項目列
-    const iAl = ['center','left','center','center','right','right','left'];
+    const iAl = ['center','left','center','center','right','right','center','center','left'];
     for (let r=R_IS; r<=R_IE; r++) {
-      for (let c=0;c<7;c++) {
+      for (let c=0;c<9;c++) {
         const a = XLSX.utils.encode_cell({r,c});
         if (!ws[a]) ws[a] = {t:'z', v:null};
         ws[a].s = {font:fn(10), alignment:al(iAl[c]), border:bd('thin')};
@@ -753,50 +757,56 @@ ${q.remarks?`<p style="margin-top:9px;font-size:9.5pt"><b>備註：</b>${q.remar
     // 總價合計（單行，換行顯示標籤+數值）
     sc(R_TOT, 0, {font:fn(10,true), alignment:al('left','top',true), border:bd('thin')});
     sc(R_TOT, 1, {font:fn(10),      alignment:al('left','top',true), border:bd('thin')});
-    for (let c=2;c<7;c++) {
+    for (let c=2;c<9;c++) {
       sc(R_TOT, c, {font:fn(12,true), alignment:al('center','top',true), border:bd('thin')});
     }
 
     // 頁尾
     for (let r=R_F1; r<=R_F2; r++) {
-      for (let c=0;c<7;c++) {
+      for (let c=0;c<9;c++) {
         const a = XLSX.utils.encode_cell({r,c});
         if (!ws[a]) ws[a] = {t:'z', v:null};
         ws[a].s = {font:fn(10), alignment:{vertical:'center'}};
       }
-      sc(r, 4, {font:fn(10), alignment:al('right','center')});
+      sc(r, 6, {font:fn(10), alignment:al('right','center')});
     }
 
     // ── Merges ──
     ws['!merges'] = [
-      {s:{r:R_CO, c:0}, e:{r:R_CO, c:6}},  // 公司名稱全寬
-      {s:{r:R_TI, c:0}, e:{r:R_TI, c:6}},  // 標題全寬
+      {s:{r:R_CO, c:0}, e:{r:R_CO, c:8}},  // 公司名稱全寬
+      {s:{r:R_TI, c:0}, e:{r:R_TI, c:8}},  // 標題全寬
       // Info row 1
-      {s:{r:R_I1, c:0}, e:{r:R_I1, c:2}},  // A:C 業主
-      {s:{r:R_I1, c:4}, e:{r:R_I1, c:6}},  // E:G 地址
+      {s:{r:R_I1, c:0}, e:{r:R_I1, c:3}},  // A:D 業主
+      {s:{r:R_I1, c:5}, e:{r:R_I1, c:8}},  // F:I 地址
       // Info row 2
-      {s:{r:R_I2, c:0}, e:{r:R_I2, c:2}},  // A:C 工程名稱
-      {s:{r:R_I2, c:4}, e:{r:R_I2, c:6}},  // E:G 日期
-      // 總價合計 左側
+      {s:{r:R_I2, c:0}, e:{r:R_I2, c:3}},  // A:D 工程名稱
+      {s:{r:R_I2, c:5}, e:{r:R_I2, c:8}},  // F:I 日期
+      // Header: 總價 F:H merged
+      {s:{r:R_HDR, c:5}, e:{r:R_HDR, c:7}},
+      // Item rows: 總價 F:H merged (27 rows)
+      ...Array.from({length:NITEMS}, (_,i) => ({s:{r:R_IS+i,c:5}, e:{r:R_IS+i,c:7}})),
+      // 總價合計 左側 A:B
       {s:{r:R_TOT,c:0}, e:{r:R_TOT,c:1}},
       // 頁尾
-      {s:{r:R_F1, c:0}, e:{r:R_F1, c:1}},
-      {s:{r:R_F1, c:2}, e:{r:R_F1, c:3}},
-      {s:{r:R_F1, c:4}, e:{r:R_F1, c:6}},
-      {s:{r:R_F2, c:0}, e:{r:R_F2, c:1}},
-      {s:{r:R_F2, c:2}, e:{r:R_F2, c:3}},
-      {s:{r:R_F2, c:4}, e:{r:R_F2, c:6}},
+      {s:{r:R_F1, c:0}, e:{r:R_F1, c:3}},
+      {s:{r:R_F1, c:4}, e:{r:R_F1, c:5}},
+      {s:{r:R_F1, c:6}, e:{r:R_F1, c:8}},
+      {s:{r:R_F2, c:0}, e:{r:R_F2, c:3}},
+      {s:{r:R_F2, c:4}, e:{r:R_F2, c:5}},
+      {s:{r:R_F2, c:6}, e:{r:R_F2, c:8}},
     ];
 
     // ── 欄寬 ──
     ws['!cols'] = [
-      {wch:6},   // A 項目
-      {wch:38},  // B 名稱
-      {wch:8},   // C 數量
-      {wch:8},   // D 單位（=工作地點標籤）
-      {wch:13},  // E 單價（=地址/日期值起始）
-      {wch:14},  // F 總價
-      {wch:16},  // G 備註
+      {wch:5},   // A 項目
+      {wch:32},  // B 名稱
+      {wch:7},   // C 數量
+      {wch:7},   // D 單位
+      {wch:11},  // E 單價（info: 工作地點/估價日期標籤）
+      {wch:5},   // F 總價/仟
+      {wch:5},   // G 佰
+      {wch:5},   // H 拾
+      {wch:14},  // I 備註
     ];
 
     // ── 列高 ──
