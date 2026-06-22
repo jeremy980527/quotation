@@ -1,605 +1,933 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業版報價單系統 (圖片格式還原版)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
-    <style>
-        :root {
-            --primary-text-color: #333;
-            --secondary-text-color: #666;
-            --light-text-color: #aaa;
-            --background-start: #f0f0f0;
-            --background-end: #e0e0e0;
-            --sidebar-bg: rgba(255, 255, 255, 0.8);
-            --main-content-bg: rgba(255, 255, 255, 0.7);
-            --border-color: rgba(0, 0, 0, 0.1);
-            --hover-bg: rgba(0, 0, 0, 0.05);
-            --button-base-bg: rgba(255, 255, 255, 0.1);
-            --button-border-light: rgba(255, 255, 255, 0.6);
-            --button-border-dark: rgba(0, 0, 0, 0.3);
-            --button-text-color: #333;
-            --button-hover-bg: rgba(255, 255, 255, 0.2);
-            --add-button-color: rgba(0, 0, 0, 0.2);
-            --download-button-color: rgba(0, 0, 0, 0.15);
-            --edit-button-color: rgba(0, 0, 0, 0.1);
-            --delete-button-color: rgba(255, 0, 0, 0.2);
-            --setting-button-color: rgba(0, 0, 0, 0.2);
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background: linear-gradient(to right, var(--background-start), var(--background-end)); color: var(--primary-text-color); line-height: 1.6; }
-        .app-container { display: flex; min-height: 100vh; }
-        .sidebar { width: 280px; background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-        .main-content { flex-grow: 1; padding: 40px; overflow-y: auto; position: relative; }
-        .sidebar-header { margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
-        .sidebar-header h2 { margin: 0; font-size: 1.2rem; color: var(--primary-text-color); }
-        #client-folder-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        #client-folder-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s, color 0.2s; font-weight: 500; color: var(--primary-text-color); }
-        .client-name-wrapper { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .client-name-wrapper::before { content: '📁'; margin-right: 10px; font-size: 1.1rem; }
-        #client-folder-list li:hover { background-color: var(--hover-bg); }
-        #client-folder-list li.active { background-color: rgba(0, 0, 0, 0.1); color: var(--primary-text-color); }
-        .delete-folder-btn { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--light-text-color); padding: 5px; border-radius: 50%; width: 30px; height: 30px; line-height: 20px; text-align: center; visibility: hidden; opacity: 0; transition: all 0.2s; flex-shrink: 0; }
-        #client-folder-list li:hover .delete-folder-btn { visibility: visible; opacity: 1; }
-        .delete-folder-btn:hover { background-color: rgba(255, 0, 0, 0.1); color: var(--delete-button-color); }
-        .content-view { display: none; }
-        .content-view.active { display: block; }
-        .form-container, .quote-list-container { background-color: var(--main-content-bg); padding: 30px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.4); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .form-group { margin-bottom: 20px; }
-        .form-group.full-width { grid-column: 1 / -1; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--secondary-text-color); }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; font-size: 1rem; background: rgba(255,255,255,0.4); color: var(--primary-text-color); }
-        .item-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .item-row .form-group { margin-bottom: 0; flex-grow: 1; }
-        .item-row button { margin-top: 20px; }
-        .quote-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .quote-table th, .quote-table td { padding: 12px 15px; border: 1px solid var(--border-color); text-align: left; }
-        .quote-table thead { background-color: var(--hover-bg); }
-        .tilt-container { perspective: 1200px; display: inline-block; vertical-align: middle; margin: 3px; box-sizing: border-box; }
-        .glass-button-base { position: relative; display: flex; justify-content: center; align-items: center; padding: 12px 20px; font-size: 1rem; text-decoration: none; text-align: center; white-space: nowrap; border: 1px solid var(--button-border-light); border-radius: 10px; background: var(--button-base-bg); color: var(--button-text-color); cursor: pointer; backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); transition: transform 0.15s ease-out, background-color 0.2s, box-shadow 0.2s; transform-style: preserve-3d; }
-        .glass-button-base:hover { background: var(--button-hover-bg); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25); border-color: rgba(255, 255, 255, 0.8); }
-        .add-quote-btn, #save-quote-btn, #add-item-btn, .download-all-btn { width: 100%; }
-        .add-quote-btn { background: var(--add-button-color); }
-        .download-all-btn { background: var(--download-button-color); }
-        .download-all-btn:disabled { background: rgba(0, 0, 0, 0.05); cursor: not-allowed; opacity: 0.6; box-shadow: none; border-color: rgba(0,0,0,0.1); }
-        .item-row button { height: 42px; width: 42px; border-radius: 50%; padding: 0; background: var(--delete-button-color); color: white; font-size: 1.2rem; box-shadow: 0 4px 15px rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.4); }
-        .item-row button:hover { background: rgba(255, 0, 0, 0.3); box-shadow: 0 6px 20px rgba(255, 0, 0, 0.3); border-color: rgba(255, 0, 0, 0.6); }
-        .action-btn { padding: 6px 12px; font-size: 0.8rem; margin-right: 5px; min-width: 80px; }
-        .export-html-btn, .download-xlsx-btn { background: var(--download-button-color); }
-        .edit-quote-btn { background: var(--edit-button-color); }
-        #settings-container { position: absolute; top: 25px; right: 40px; margin: 0; z-index: 10; }
-        #settings-btn { font-size: 1.5rem; color: var(--secondary-text-color); background: var(--setting-button-color); box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 50%; width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; padding: 0; border-color: rgba(0,0,0,0.2); }
-        #settings-btn:hover { background: rgba(0,0,0,0.25); box-shadow: 0 6px 20px rgba(0,0,0,0.2); border-color: rgba(0,0,0,0.3); }
-        .settings-modal-actions { margin-top: 20px; text-align: right; }
-        .settings-modal-actions .tilt-container { margin-left: 10px; }
-        #save-settings-btn { background: var(--add-button-color); }
-        #close-settings-btn { background: var(--download-button-color); }
-        #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        #settings-overlay.active { display: flex; }
-        .settings-modal { background: var(--main-content-bg); padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.5); }
-        .settings-modal h2 { margin-top: 0; color: var(--primary-text-color); }
-        .settings-modal .form-group { margin-bottom: 15px; }
-        .search-input { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; margin-bottom: 15px; background: rgba(255,255,255,0.4); color: var(--primary-text-color); }
-        .quote-search-container { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
-        .quote-search-container input { flex-grow: 1; margin: 0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>專業版報價單系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+<style>
+:root {
+  --primary: #333;
+  --secondary: #666;
+  --light: #aaa;
+  --bg-start: #f0f0f0;
+  --bg-end: #e0e0e0;
+  --sidebar-bg: rgba(255,255,255,0.85);
+  --main-bg: rgba(255,255,255,0.75);
+  --border: rgba(0,0,0,0.1);
+  --hover: rgba(0,0,0,0.05);
+  --btn-bg: rgba(255,255,255,0.15);
+  --btn-light: rgba(255,255,255,0.6);
+  --btn-dark: rgba(0,0,0,0.3);
+  --btn-text: #333;
+  --btn-hover: rgba(255,255,255,0.25);
+  --sidebar-w: 280px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #ddd;
+    --secondary: #aaa;
+    --light: #666;
+    --bg-start: #1a1a2e;
+    --bg-end: #16213e;
+    --sidebar-bg: rgba(20,20,40,0.92);
+    --main-bg: rgba(25,25,45,0.85);
+    --border: rgba(255,255,255,0.12);
+    --hover: rgba(255,255,255,0.06);
+    --btn-bg: rgba(255,255,255,0.1);
+    --btn-light: rgba(255,255,255,0.2);
+    --btn-dark: rgba(255,255,255,0.1);
+    --btn-text: #ddd;
+    --btn-hover: rgba(255,255,255,0.18);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(135deg,var(--bg-start),var(--bg-end));color:var(--primary);line-height:1.6;min-height:100vh}
+
+/* Layout */
+.app-container{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);border-right:1px solid var(--border);padding:20px;display:flex;flex-direction:column;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);flex-shrink:0;transition:transform .3s ease;z-index:100}
+.main-content{flex-grow:1;padding:40px;overflow-y:auto;position:relative;min-width:0}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.hamburger{display:none;position:fixed;top:14px;left:14px;z-index:200;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:8px;width:44px;height:44px;cursor:pointer;flex-direction:column;justify-content:center;align-items:center;gap:5px;backdrop-filter:blur(8px)}
+.hamburger span{display:block;width:20px;height:2px;background:var(--primary);border-radius:2px;transition:all .3s}
+
+/* Sidebar */
+.sidebar-header{margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:15px}
+.sidebar-header h2{font-size:1.15rem;color:var(--primary)}
+#client-folder-list{list-style:none;overflow-y:auto;flex-grow:1}
+#client-folder-list li{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:6px;cursor:pointer;transition:background .2s;font-weight:500;color:var(--primary)}
+.client-name-wrapper{display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.client-name-wrapper::before{content:'📁';margin-right:9px;font-size:1rem}
+#client-folder-list li:hover{background:var(--hover)}
+#client-folder-list li.active{background:rgba(0,0,0,.1)}
+.del-folder-btn{background:none;border:none;cursor:pointer;font-size:.95rem;color:var(--light);padding:4px;border-radius:50%;width:28px;height:28px;text-align:center;visibility:hidden;opacity:0;transition:all .2s;flex-shrink:0}
+#client-folder-list li:hover .del-folder-btn{visibility:visible;opacity:1}
+
+/* Views */
+.content-view{display:none}
+.content-view.active{display:block}
+.form-container,.quote-list-container{background:var(--main-bg);padding:30px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.1);backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);border:1px solid rgba(255,255,255,.4)}
+.form-container h1,.quote-list-container h1{margin-bottom:20px;font-size:1.6rem}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.form-group{margin-bottom:18px}
+.form-group.full-width{grid-column:1/-1}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--secondary)}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:.95rem;background:rgba(255,255,255,.45);color:var(--primary);transition:border-color .2s}
+.form-group input:focus,.form-group textarea:focus{outline:none;border-color:rgba(0,0,0,.3)}
+.form-group h4{margin:20px 0 10px;font-size:1rem;color:var(--secondary)}
+.item-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;align-items:flex-end;background:rgba(255,255,255,.2);border-radius:8px;padding:10px}
+.item-row .form-group{margin-bottom:0}
+.table-wrap{overflow-x:auto}
+.quote-table{width:100%;border-collapse:collapse;margin-top:16px;white-space:nowrap}
+.quote-table th,.quote-table td{padding:10px 13px;border:1px solid var(--border);text-align:left;font-size:.9rem}
+.quote-table thead{background:var(--hover)}
+
+/* Buttons */
+.tilt-container{perspective:1200px;display:inline-block;vertical-align:middle;margin:3px}
+.gbtn{position:relative;display:flex;justify-content:center;align-items:center;padding:11px 18px;font-size:.95rem;text-align:center;white-space:nowrap;border:1px solid var(--btn-light);border-radius:9px;background:var(--btn-bg);color:var(--btn-text);cursor:pointer;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 6px 24px rgba(0,0,0,.12);transition:transform .15s ease-out,background .2s,box-shadow .2s;transform-style:preserve-3d;min-height:42px;font-family:inherit}
+.gbtn:hover{background:var(--btn-hover);box-shadow:0 10px 36px rgba(0,0,0,.2)}
+.gbtn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.btn-full{width:100%}
+.btn-add{background:rgba(0,0,0,.2)}
+.btn-dl{background:rgba(0,0,0,.15)}
+.btn-del{background:rgba(220,0,0,.2);border-color:rgba(220,0,0,.4);color:#fff;border-radius:50%;width:38px;height:38px;padding:0;font-size:1.1rem;flex-shrink:0}
+.btn-del:hover{background:rgba(220,0,0,.35)}
+.action-btn{padding:5px 10px;font-size:.78rem;min-width:72px;min-height:32px}
+#settings-container{position:absolute;top:22px;right:38px;z-index:10}
+#settings-btn{font-size:1.4rem;border-radius:50%;width:46px;height:46px;padding:0;background:rgba(0,0,0,.18)}
+
+/* Settings modal */
+#settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;justify-content:center;align-items:center;z-index:1000}
+#settings-overlay.active{display:flex}
+.settings-modal{background:var(--main-bg);padding:28px;border-radius:12px;width:90%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.5);max-height:90vh;overflow-y:auto}
+.settings-modal h2{margin-bottom:6px}
+.settings-modal p{color:var(--secondary);font-size:.88rem;margin-bottom:16px}
+.modal-actions{margin-top:18px;text-align:right}
+
+/* Confirm dialog */
+.confirm-dialog{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;justify-content:center;align-items:center;z-index:2000}
+.confirm-dialog.active{display:flex}
+.confirm-box{background:var(--main-bg);backdrop-filter:blur(20px);padding:28px;border-radius:12px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.confirm-box h3{color:#c62828;margin-bottom:10px}
+.confirm-actions{display:flex;gap:10px;justify-content:center;margin-top:18px}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#444;color:#fff;padding:10px 22px;border-radius:8px;font-size:.9rem;z-index:9999;transition:transform .3s ease;box-shadow:0 4px 18px rgba(0,0,0,.3);pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#2e7d32}
+.toast.err{background:#c62828}
+
+/* Spinner */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:7px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Search */
+.search-input{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:6px;margin-bottom:13px;background:rgba(255,255,255,.4);color:var(--primary);font-size:.9rem;min-height:38px}
+.search-row{display:flex;gap:10px;margin-bottom:16px;align-items:center}
+.search-row input{flex-grow:1;margin:0}
+.search-row select{padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.4);color:var(--primary);font-size:.88rem}
+
+/* Responsive */
+@media(max-width:768px){
+  .hamburger{display:flex}
+  .sidebar{position:fixed;top:0;left:0;height:100vh;transform:translateX(-100%);box-shadow:4px 0 24px rgba(0,0,0,.18)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.active{display:block}
+  .main-content{padding:18px 14px;padding-top:68px}
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full-width{grid-column:1}
+  #settings-container{top:14px;right:14px}
+  .form-container,.quote-list-container{padding:16px}
+  .item-row{flex-direction:column}
+  .item-row .form-group{width:100%}
+  .quote-table th,.quote-table td{padding:7px 9px;font-size:.82rem}
+  .action-btn{min-width:56px;font-size:.74rem;padding:5px 7px}
+}
+@media(max-width:480px){
+  .main-content{padding:12px 10px;padding-top:66px}
+  .form-container,.quote-list-container{padding:12px;border-radius:8px}
+  .gbtn{padding:9px 13px;font-size:.88rem}
+}
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <aside class="sidebar">
-            <div class="sidebar-header"><h2>客戶資料夾</h2></div>
-            <input type="search" id="folder-search-input" class="search-input" placeholder="搜尋客戶...">
-            <ul id="client-folder-list"></ul>
-            <div class="tilt-container" style="margin-top: 20px; width: 100%;">
-                <button class="add-quote-btn glass-button-base" id="show-add-quote-view-btn">＋ 新增報價單</button>
-            </div>
-            <div class="tilt-container" style="margin-top: 10px; width: 100%;">
-                <button class="download-all-btn glass-button-base" id="download-all-zip-btn">一鍵備份所有報價單 (ZIP)</button>
-            </div>
-        </aside>
-        <main class="main-content">
-            <div id="settings-container" class="tilt-container">
-                 <button id="settings-btn" class="glass-button-base" title="設定您的公司資訊">⚙️</button>
-            </div>
-            <div id="welcome-view" class="content-view active"><div class="form-container"><h1>歡迎使用專業版報價單系統</h1><p>請點擊左側「新增報價單」來建立您的第一份報價單，或點擊客戶資料夾查看歷史紀錄。</p></div></div>
-            
-            <div id="add-quote-view" class="content-view">
-                <div class="form-container">
-                    <h1 id="add-quote-view-title">建立新的報價單</h1>
-                    <form id="quote-form">
-                        <h4>客戶與專案資訊</h4>
-                        <div class="form-grid">
-                            <div class="form-group"><label for="customer-contact-name">業主/客戶名稱</label><input type="text" id="customer-contact-name" required placeholder="例如: 小明 或 ABC 科技公司"></div>
-                            <div class="form-group"><label for="customer-company-name">公司寶號 (可選)</label><input type="text" id="customer-company-name" placeholder="例如: ABC 科技公司"></div>
-                            <div class="form-group"><label for="project-name">工程名稱</label><input type="text" id="project-name" placeholder="例如: A廠房鋼構工程"></div>
-                            <div class="form-group"><label for="customer-address">工作地點/地址</label><input type="text" id="customer-address" placeholder="工程地點或客戶郵寄地址"></div>
-                            <div class="form-group"><label for="customer-tax-id">統一編號</label><input type="text" id="customer-tax-id" placeholder="8 位數字"></div>
-                            <div class="form-group"><label for="customer-phone">電話</label><input type="text" id="customer-phone" placeholder="客戶的聯絡電話"></div>
-                        </div>
 
-                        <div id="items-container">
-                            <h4>報價項目</h4>
-                        </div>
+<button class="hamburger" id="hamburger" aria-label="選單">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-                        <div class="tilt-container">
-                            <button type="button" id="add-item-btn" class="glass-button-base">+ 新增項目</button>
-                        </div>
-                        <div class="form-group full-width" style="margin-top:20px;"><label for="remarks">全局備註事項 (顯示在表格外)</label><textarea id="remarks" rows="3"></textarea></div>
-                        <hr style="margin:30px 0;border:1px solid var(--border-color);">
-                        <div class="tilt-container">
-                            <button type="submit" id="save-quote-btn" class="glass-button-base">儲存報價單</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div id="quote-list-view" class="content-view">
-                <div class="quote-list-container">
-                    <h1 id="list-view-client-name"></h1>
-                    <div class="quote-search-container">
-                        <input type="search" id="quote-search-input" class="search-input" placeholder="搜尋此客戶的報價單...">
-                        <select id="quote-search-mode" class="form-group">
-                            <option value="id">依報價單號</option>
-                            <option value="keyword">依內容關鍵詞</option>
-                        </select>
-                    </div>
-                    <table class="quote-table">
-                        <thead><tr><th>報價單號</th><th>建立日期</th><th>工程名稱</th><th>總金額</th><th>操作</th></tr></thead>
-                        <tbody id="quote-list-tbody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
+<div class="app-container">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header"><h2>📋 客戶資料夾</h2></div>
+    <input type="search" id="folder-search" class="search-input" placeholder="搜尋客戶...">
+    <ul id="client-folder-list"></ul>
+    <div class="tilt-container" style="margin-top:18px;width:100%">
+      <button class="gbtn btn-add btn-full" id="btn-new-quote">＋ 新增報價單</button>
     </div>
-    
-    <div id="settings-overlay"><div class="settings-modal">
-        <h2>設定您的公司資訊</h2>
-        <p>此資訊將會顯示在所有匯出的報價單上。</p>
-        <div class="form-group"><label for="my-company-name">您的公司名稱</label><input type="text" id="my-company-name"></div>
-        <div class="form-group"><label for="my-company-tax-id">您的統一編號</label><input type="text" id="my-company-tax-id"></div>
-        <div class="form-group"><label for="my-company-address">您的地址</label><input type="text" id="my-company-address"></div>
-        <div class="form-group"><label for="my-company-phone">您的電話</label><input type="text" id="my-company-phone"></div>
-        <div class="form-group"><label for="my-company-fax">您的傳真</label><input type="text" id="my-company-fax"></div>
-        <div class="form-group"><label for="my-company-email">您的電子郵件</label><input type="email" id="my-company-email"></div>
-        <div class="form-group"><label for="my-company-agent">您的經手人/聯絡人</label><input type="text" id="my-company-agent"></div>
-        <div class="settings-modal-actions">
-            <div class="tilt-container"><button id="close-settings-btn" class="glass-button-base">關閉</button></div>
-            <div class="tilt-container"><button id="save-settings-btn" class="glass-button-base">儲存設定</button></div>
+    <div class="tilt-container" style="margin-top:9px;width:100%">
+      <button class="gbtn btn-dl btn-full" id="btn-zip">一鍵備份所有報價單 (ZIP)</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div id="settings-container" class="tilt-container">
+      <button id="settings-btn" class="gbtn" title="設定公司資訊">⚙️</button>
+    </div>
+
+    <div id="welcome-view" class="content-view active">
+      <div class="form-container">
+        <h1>歡迎使用專業版報價單系統</h1>
+        <p style="color:var(--secondary);margin-bottom:10px">點擊左側「新增報價單」建立報價單，或選擇客戶資料夾查看紀錄。</p>
+        <p style="color:var(--secondary);font-size:.88rem">💡 請先點右上角 ⚙️ 設定公司資訊，匯出時會自動帶入。</p>
+      </div>
+    </div>
+
+    <div id="add-quote-view" class="content-view">
+      <div class="form-container">
+        <h1 id="form-title">建立新的報價單</h1>
+        <form id="quote-form">
+          <h4 style="margin-bottom:14px;color:var(--secondary)">客戶與專案資訊</h4>
+          <div class="form-grid">
+            <div class="form-group"><label>業主/客戶名稱 *</label><input type="text" id="f-contact" required placeholder="例：王小明"></div>
+            <div class="form-group"><label>公司寶號</label><input type="text" id="f-company" placeholder="例：ABC 科技公司"></div>
+            <div class="form-group"><label>工程名稱</label><input type="text" id="f-project" placeholder="例：A廠房鋼構工程"></div>
+            <div class="form-group"><label>工作地點/地址</label><input type="text" id="f-address" placeholder="工程地點"></div>
+            <div class="form-group"><label>統一編號</label><input type="text" id="f-taxid" placeholder="8 位數字" maxlength="8"></div>
+            <div class="form-group"><label>電話</label><input type="text" id="f-phone" placeholder="客戶聯絡電話"></div>
+          </div>
+          <div id="items-container"><h4>報價項目</h4></div>
+          <div class="tilt-container">
+            <button type="button" id="btn-add-item" class="gbtn">＋ 新增項目列</button>
+          </div>
+          <div class="form-group full-width" style="margin-top:18px">
+            <label>備註事項</label>
+            <textarea id="f-remarks" rows="3" placeholder="特殊條件、付款方式..."></textarea>
+          </div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border)">
+          <div class="tilt-container">
+            <button type="submit" id="btn-save" class="gbtn btn-add btn-full">儲存報價單</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="quote-list-view" class="content-view">
+      <div class="quote-list-container">
+        <h1 id="list-title"></h1>
+        <div class="search-row">
+          <input type="search" id="quote-search" class="search-input" placeholder="搜尋報價單...">
+          <select id="quote-search-mode">
+            <option value="id">依報價單號</option>
+            <option value="keyword">依關鍵詞</option>
+          </select>
         </div>
-    </div></div>
+        <div class="table-wrap">
+          <table class="quote-table">
+            <thead><tr><th>報價單號</th><th>建立日期</th><th>工程名稱</th><th>含稅總額</th><th>操作</th></tr></thead>
+            <tbody id="quote-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const downloadAllZipBtn = document.getElementById('download-all-zip-btn');
-            const clientFolderList = document.getElementById('client-folder-list');
-            const quoteForm = document.getElementById('quote-form');
-            const itemsContainer = document.getElementById('items-container');
-            const addItemBtn = document.getElementById('add-item-btn');
-            const showAddQuoteViewBtn = document.getElementById('show-add-quote-view-btn');
-            const quoteListTbody = document.getElementById('quote-list-tbody');
-            const listViewClientName = document.getElementById('list-view-client-name');
-            const settingsBtn = document.getElementById('settings-btn');
-            const settingsOverlay = document.getElementById('settings-overlay');
-            const saveSettingsBtn = document.getElementById('save-settings-btn');
-            const closeSettingsBtn = document.getElementById('close-settings-btn');
-            const addQuoteViewTitle = document.getElementById('add-quote-view-title');
-            const saveQuoteBtn = document.getElementById('save-quote-btn');
-            const folderSearchInput = document.getElementById('folder-search-input');
-            const quoteSearchInput = document.getElementById('quote-search-input');
-            const quoteSearchMode = document.getElementById('quote-search-mode');
-            
-            let quotes = [];
-            let myCompanyInfo = {};
-            let currentEditQuoteId = null;
-            let activeClientName = null;
+<!-- Settings -->
+<div id="settings-overlay">
+  <div class="settings-modal">
+    <h2>⚙️ 公司資訊設定</h2>
+    <p>此資訊將顯示在所有匯出的報價單上。</p>
+    <div class="form-group"><label>公司名稱</label><input type="text" id="s-name" placeholder="昱偉機械工程有限公司"></div>
+    <div class="form-group"><label>統一編號</label><input type="text" id="s-taxid" placeholder="84959997"></div>
+    <div class="form-group"><label>公司地址</label><input type="text" id="s-address" placeholder="新北市..."></div>
+    <div class="form-group"><label>電話</label><input type="text" id="s-phone" placeholder="02-22919477"></div>
+    <div class="form-group"><label>傳真</label><input type="text" id="s-fax" placeholder="02-22919532"></div>
+    <div class="form-group"><label>電子郵件</label><input type="email" id="s-email" placeholder="info@company.com"></div>
+    <div class="form-group"><label>經手人</label><input type="text" id="s-agent" placeholder="張坤銘 0930-881-980"></div>
+    <div class="modal-actions">
+      <div class="tilt-container"><button id="btn-close-settings" class="gbtn">關閉</button></div>
+      <div class="tilt-container"><button id="btn-save-settings" class="gbtn btn-add">儲存設定</button></div>
+    </div>
+  </div>
+</div>
 
-            function initializeTiltEffects() {
-                const containers = document.querySelectorAll('.tilt-container');
-                containers.forEach(container => {
-                    if (container.dataset.tiltInitialized) return;
-                    container.dataset.tiltInitialized = true;
-                    const button = container.querySelector('.glass-button-base');
-                    if (!button) return;
-                    container.addEventListener('mousemove', (e) => {
-                        const rect = container.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
-                        const centerX = rect.width / 2;
-                        const centerY = rect.height / 2;
-                        const rotateX = ((y - centerY) / centerY) * -15;
-                        const rotateY = ((x - centerX) / centerX) * 15;
-                        button.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-                    });
-                    container.addEventListener('mouseleave', () => {
-                        button.style.transform = 'rotateX(0) rotateY(0)';
-                    });
-                });
-            }
+<!-- Confirm -->
+<div class="confirm-dialog" id="confirm-dialog">
+  <div class="confirm-box">
+    <h3>⚠️ 確認刪除</h3>
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <div class="tilt-container"><button class="gbtn" id="btn-confirm-cancel">取消</button></div>
+      <div class="tilt-container"><button class="gbtn" id="btn-confirm-ok" style="background:rgba(200,0,0,.3);border-color:rgba(200,0,0,.5)">確認刪除</button></div>
+    </div>
+  </div>
+</div>
 
-            function switchView(viewId) { document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); }
-            function loadDataFromStorage() { const s = localStorage.getItem('proQuotes'); if (s) quotes = JSON.parse(s); const c = localStorage.getItem('myCompanyInfo'); if (c) myCompanyInfo = JSON.parse(c); }
-            function saveDataToStorage() { localStorage.setItem('proQuotes', JSON.stringify(quotes)); localStorage.setItem('myCompanyInfo', JSON.stringify(myCompanyInfo)); }
-            function generateQuoteId() { const d = new Date(); return `Q-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}-${d.getTime().toString().slice(-4)}`; }
-            function formatCurrency(amount) { return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 }).format(amount); }
-            
-            function renderClientFolders() {
-                const groupedByClient = quotes.reduce((acc, quote) => { const k = quote.customerContactName; if (!acc[k]) acc[k] = []; acc[k].push(quote); return acc; }, {});
-                clientFolderList.innerHTML = '';
-                const sortedClients = Object.keys(groupedByClient).sort();
-                if (sortedClients.length === 0) { clientFolderList.innerHTML = '<p style="color:#6c757d;padding:15px;">尚無客戶資料</p>'; }
-                sortedClients.forEach(clientName => {
-                    const li = document.createElement('li');
-                    li.dataset.client = clientName;
-                    li.innerHTML = `<span class="client-name-wrapper">${clientName}</span><button class="delete-folder-btn" title="刪除此客戶的所有資料">🗑️</button>`;
-                    clientFolderList.appendChild(li);
-                });
-                filterClientFolders();
-            }
-            
-            function renderQuoteListForClient(clientName) {
-                activeClientName = clientName;
-                listViewClientName.textContent = `客戶: ${clientName}`;
-                let clientQuotes = quotes.filter(q => q.customerContactName === clientName);
-                const searchTerm = quoteSearchInput.value.trim().toLowerCase();
-                const searchMode = quoteSearchMode.value;
-                if (searchTerm) {
-                    if (searchMode === 'id') {
-                        clientQuotes = clientQuotes.filter(q => q.id.toLowerCase().includes(searchTerm));
-                    } else if (searchMode === 'keyword') {
-                        clientQuotes = clientQuotes.filter(q => q.items.some(item => item.description.toLowerCase().includes(searchTerm)) || (q.projectName && q.projectName.toLowerCase().includes(searchTerm)));
-                    }
-                }
-                clientQuotes.sort((a,b) => new Date(b.date) - new Date(a.date));
-                quoteListTbody.innerHTML = '';
-                if (clientQuotes.length === 0) {
-                    quoteListTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">找不到符合條件的報價單</td></tr>';
-                } else {
-                    clientQuotes.forEach(quote => {
-                        const tr = document.createElement('tr');
-                        const totalAmount = quote.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-                        tr.innerHTML = `
-                            <td>${quote.id}</td>
-                            <td>${new Date(quote.date).toLocaleDateString()}</td>
-                            <td>${quote.projectName || '未命名'}</td>
-                            <td>${formatCurrency(totalAmount*1.05)}</td>
-                            <td>
-                                <div class="tilt-container"><button class="action-btn edit-quote-btn glass-button-base" data-quote-id="${quote.id}">修改</button></div>
-                                <div class="tilt-container"><button class="action-btn export-html-btn glass-button-base" data-quote-id="${quote.id}">預覽/列印</button></div>
-                                <div class="tilt-container"><button class="action-btn download-xlsx-btn glass-button-base" data-quote-id="${quote.id}">下載 XLSX</button></div>
-                            </td>`;
-                        quoteListTbody.appendChild(tr);
-                    });
-                }
-                switchView('quote-list-view');
-                initializeTiltEffects();
-            }
-            
-            function filterClientFolders() {
-                const searchTerm = folderSearchInput.value.trim().toLowerCase();
-                const allFolders = clientFolderList.querySelectorAll('li');
-                allFolders.forEach(li => {
-                    const clientName = li.dataset.client.toLowerCase();
-                    if (clientName.includes(searchTerm)) { li.style.display = 'flex'; } else { li.style.display = 'none'; }
-                });
-            }
+<div class="toast" id="toast"></div>
 
-            function deleteClientData(clientName) {
-                const isConfirmed = confirm(`您確定要刪除客戶「${clientName}」的所有報價單嗎？\n\n此操作無法復原！`);
-                if (isConfirmed) {
-                    quotes = quotes.filter(quote => quote.customerContactName !== clientName);
-                    saveDataToStorage();
-                    renderClientFolders();
-                    switchView('welcome-view');
-                }
-            }
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- DOM refs ---
+  const sidebar = document.getElementById('sidebar');
+  const hamburger = document.getElementById('hamburger');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+  const btnNewQuote = document.getElementById('btn-new-quote');
+  const btnZip = document.getElementById('btn-zip');
+  const folderList = document.getElementById('client-folder-list');
+  const quoteForm = document.getElementById('quote-form');
+  const itemsContainer = document.getElementById('items-container');
+  const btnAddItem = document.getElementById('btn-add-item');
+  const quoteTbody = document.getElementById('quote-tbody');
+  const listTitle = document.getElementById('list-title');
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsOverlay = document.getElementById('settings-overlay');
+  const btnSaveSettings = document.getElementById('btn-save-settings');
+  const btnCloseSettings = document.getElementById('btn-close-settings');
+  const formTitle = document.getElementById('form-title');
+  const btnSave = document.getElementById('btn-save');
+  const folderSearch = document.getElementById('folder-search');
+  const quoteSearch = document.getElementById('quote-search');
+  const quoteSearchMode = document.getElementById('quote-search-mode');
+  const toast = document.getElementById('toast');
+  const confirmDialog = document.getElementById('confirm-dialog');
+  const confirmMsg = document.getElementById('confirm-msg');
+  const btnConfirmOk = document.getElementById('btn-confirm-ok');
+  const btnConfirmCancel = document.getElementById('btn-confirm-cancel');
 
-            function addNewItemRow(item = null) {
-                const i = `item-${Date.now()}`, r = document.createElement('div');
-                r.classList.add('item-row');
-                r.id = i;
-                r.innerHTML = `
-                    <div class="form-group" style="flex-basis:40%;"><label>項目描述</label><input type="text" class="item-description" required value="${item?.description || ''}"></div>
-                    <div class="form-group" style="flex-basis:10%;"><label>數量</label><input type="number" class="item-quantity" required min="1" value="${item?.quantity || '1'}"></div>
-                    <div class="form-group" style="flex-basis:10%;"><label>單位</label><input type="text" class="item-unit" value="${item?.unit || ''}"></div>
-                    <div class="form-group" style="flex-basis:15%;"><label>單價</label><input type="number" class="item-unit-price" required min="0" value="${item?.unitPrice || ''}"></div>
-                    <div class="form-group" style="flex-basis:15%;"><label>備註</label><input type="text" class="item-remark" value="${item?.remark || ''}"></div>
-                    <div class="tilt-container"><button type="button" class="glass-button-base" onclick="document.getElementById('${i}').remove()">×</button></div>`;
-                itemsContainer.appendChild(r);
-                initializeTiltEffects();
-            }
-            
-            function loadQuoteIntoForm(quoteId) { 
-                const q=quotes.find(q=>q.id===quoteId);
-                if(!q)return;
-                currentEditQuoteId=quoteId;
-                document.getElementById('customer-contact-name').value=q.customerContactName;
-                document.getElementById('customer-company-name').value=q.customerCompanyName;
-                document.getElementById('project-name').value=q.projectName;
-                document.getElementById('customer-address').value=q.customerAddress;
-                document.getElementById('customer-tax-id').value=q.customerTaxId;
-                document.getElementById('customer-phone').value=q.customerPhone;
-                document.getElementById('remarks').value=q.remarks;
-                itemsContainer.innerHTML='<h4>報價項目</h4>';
-                q.items.forEach(i=>addNewItemRow(i));
-                addQuoteViewTitle.textContent=`修改報價單 #${quoteId}`;
-                saveQuoteBtn.textContent='儲存變更';
-                switchView('add-quote-view'); 
-            }
-            
-            function toChineseCurrency(num) {
-                const chars = '零壹貳參肆伍陸柒捌玖';
-                const units = '元拾佰仟萬拾佰仟億';
-                let str = '', i = 0;
-                let numStr = Math.round(num).toString();
-                for (let j = numStr.length - 1; j >= 0; j--) {
-                    str = chars[numStr[j]] + units[i++] + str;
-                }
-                return str.replace(/零[拾佰仟]/g, '零').replace(/零{2,}/g, '零').replace(/(零|)萬/g, '萬').replace(/(零|)億/g, '億').replace(/億萬/g, '億').replace(/零元/g, '元').replace(/^元/g, '').replace(/元$/g, '元整');
-            }
+  let quotes = [], company = {}, editId = null, activeClient = null, confirmCb = null;
 
-            function formatMinguoDate(isoDate) {
-                if (!isoDate) return '';
-                const d = new Date(isoDate);
-                const year = d.getFullYear() - 1911;
-                const month = d.getMonth() + 1;
-                const day = d.getDate();
-                return `${year}年 ${month}月 ${day}日`;
-            }
+  // --- Mobile sidebar ---
+  hamburger.addEventListener('click', () => openSidebar(true));
+  sidebarOverlay.addEventListener('click', () => openSidebar(false));
+  function openSidebar(on) {
+    sidebar.classList.toggle('open', on);
+    sidebarOverlay.classList.toggle('active', on);
+  }
+  function closeSidebarMobile() { if (window.innerWidth <= 768) openSidebar(false); }
 
-            function exportQuoteAsHTML(quoteId) {
-                const q = quotes.find(q => q.id === quoteId);
-                if (!q) return;
-                const subTotal = q.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-                const grandTotal = Math.round(subTotal * 1.05);
-                let itemsHtml = '';
-                q.items.forEach((item, index) => {
-                    const lineTotal = item.quantity * item.unitPrice;
-                    itemsHtml += `<tr><td class="center">${index + 1}</td><td>${item.description || ''}</td><td class="center">${item.quantity || ''}</td><td class="center">${item.unit || ''}</td><td class="right">${item.unitPrice.toLocaleString()}</td><td class="right">${lineTotal.toLocaleString()}</td><td>${item.remark || ''}</td></tr>`;
-                });
-                for (let i = q.items.length; i < 27; i++) {
-                    itemsHtml += `<tr><td class="center">${i + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-                }
-                const html = `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>估價單 - ${q.projectName || q.customerContactName}</title><style>body { font-family: '新細明體', PMingLiU, sans-serif; margin: 0; padding: 1.5em; font-size: 14pt; color: #000; } .container { width: 100%; max-width: 800px; margin: auto; } h1, h2 { text-align: center; margin: 0; font-weight: bold; } h1 { font-size: 26pt; letter-spacing: 0.2em; margin-bottom: 0.2em; } h2 { font-size: 22pt; margin-bottom: 1em; } .info-table, .main-table, .footer-table { width: 100%; border-collapse: collapse; } .info-table { margin-bottom: 0.5em; font-size: 12pt; } .info-table td { padding: 4px 8px; border-bottom: 1px solid transparent; } .info-table tr:last-child td { border-bottom: 2px solid black; } .main-table, .main-table th, .main-table td { border: 1px solid black; } .main-table th { padding: 8px; font-weight: bold; text-align: center; background-color: #fff; } .main-table td { padding: 6px 8px; height: 24pt; } .main-table .center { text-align: center; } .main-table .right { text-align: right; } .total-row td { font-weight: bold; font-size: 12pt; } .footer-table { margin-top: 1.5em; font-size: 12pt; } .footer-table td { padding: 2px 4px; } @media print { body { margin: 0; padding: 1em; } .no-print { display: none; } }</style></head><body><div class="container"><h1>${myCompanyInfo.name || '您的公司名稱'}</h1><h2>估價單</h2><table class="info-table"><tr><td>業主：${q.customerContactName || ''}</td><td>工作地點：${q.customerAddress || ''}</td></tr><tr><td style="border-bottom: 2px solid black;">工程名稱：${q.projectName || ''}</td><td style="text-align: right; border-bottom: 2px solid black;">估價日期：${formatMinguoDate(q.date)}</td></tr></table><table class="main-table"><thead><tr><th width="5%">項目</th><th width="40%">名稱</th><th width="8%">數量</th><th width="8%">單位</th><th width="12%">單價</th><th width="12%">總價</th><th width="15%">備註</th></tr></thead><tbody>${itemsHtml}<tr class="total-row"><td colspan="2">總價新台幣：${toChineseCurrency(grandTotal)}</td><td colspan="3" style="text-align:right; vertical-align:middle;">總計</td><td class="right" colspan="2" style="font-size: 14pt;">NT$ ${grandTotal.toLocaleString()}</td></tr></tbody></table><table class="footer-table"><tr><td>地址：${myCompanyInfo.address || ''}</td><td>統一編號：${myCompanyInfo.taxId || ''}</td><td>第 1 頁，共 1 頁</td></tr><tr><td>電話：${myCompanyInfo.phone || ''}</td><td>傳真：${myCompanyInfo.fax || ''}</td><td>經手人：${myCompanyInfo.agent || ''}</td></tr></table></div></body></html>`;
-                const win = window.open("", "Print");
-                win.document.write(html);
-                win.document.close();
-                win.focus();
-            }
+  // --- Toast ---
+  let toastTimer;
+  function showToast(msg, type = '') {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.className = `toast show ${type}`;
+    toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2800);
+  }
 
-            function exportQuoteAsXLSX(quoteId) {
-                const q = quotes.find(q => q.id === quoteId);
-                if (!q) return;
+  // --- Confirm ---
+  function showConfirm(msg, cb) {
+    confirmMsg.textContent = msg;
+    confirmCb = cb;
+    confirmDialog.classList.add('active');
+  }
+  btnConfirmOk.addEventListener('click', () => { confirmDialog.classList.remove('active'); if (confirmCb) confirmCb(); });
+  btnConfirmCancel.addEventListener('click', () => confirmDialog.classList.remove('active'));
 
-                const subTotal = q.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-                const grandTotal = Math.round(subTotal * 1.05);
-                
-                // 1. 建立資料
-                const ws_data = [
-                    [myCompanyInfo.name || '您的公司名稱'],
-                    ['估價單'],
-                    [],
-                    [`業主：${q.customerContactName || ''}`, null, null, `工作地點：${q.customerAddress || ''}`],
-                    [`工程名稱：${q.projectName || ''}`, null, null, `估價日期：${formatMinguoDate(q.date)}`],
-                    [],
-                    ['項目', '名稱', '數量', '單位', '單價', '總價', '備註']
-                ];
+  // --- Tilt ---
+  function initTilt() {
+    document.querySelectorAll('.tilt-container').forEach(c => {
+      if (c.dataset.t) return;
+      c.dataset.t = '1';
+      const b = c.querySelector('.gbtn');
+      if (!b) return;
+      c.addEventListener('mousemove', e => {
+        const r = c.getBoundingClientRect();
+        const rx = ((e.clientY - r.top - r.height/2) / (r.height/2)) * -12;
+        const ry = ((e.clientX - r.left - r.width/2) / (r.width/2)) * 12;
+        b.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+      });
+      c.addEventListener('mouseleave', () => { b.style.transform = ''; });
+    });
+  }
 
-                q.items.forEach((item, index) => {
-                    ws_data.push([
-                        index + 1,
-                        item.description || '',
-                        item.quantity || null,
-                        item.unit || '',
-                        item.unitPrice || null,
-                        (item.quantity * item.unitPrice) || null,
-                        item.remark || ''
-                    ]);
-                });
-                for (let i = q.items.length; i < 27; i++) {
-                    ws_data.push([i + 1, '', '', '', '', '', '']);
-                }
-                ws_data.push([`總價新台幣：${toChineseCurrency(grandTotal)}`, null, '總計', null, null, null, grandTotal]);
-                ws_data.push([]);
-                ws_data.push([`地址：${myCompanyInfo.address || ''}`, null, `統一編號：${myCompanyInfo.taxId || ''}`, null, `第 1 頁，共 1 頁`]);
-                ws_data.push([`電話：${myCompanyInfo.phone || ''}`, null, `傳真：${myCompanyInfo.fax || ''}`, null, `經手人：${myCompanyInfo.agent || ''}`]);
-                
-                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  // --- Storage ---
+  function load() {
+    try {
+      const q = localStorage.getItem('proQuotes');
+      if (q) quotes = JSON.parse(q);
+      const c = localStorage.getItem('myCompanyInfo');
+      if (c) company = JSON.parse(c);
+    } catch(e) { quotes = []; company = {}; }
+  }
+  function save() {
+    localStorage.setItem('proQuotes', JSON.stringify(quotes));
+    localStorage.setItem('myCompanyInfo', JSON.stringify(company));
+  }
 
-                // 2. 定義樣式
-                const fontNormal = { name: "新細明體", sz: 12 };
-                const borderAll = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-                const borderBottomThick = { bottom: { style: "medium" } }; // 用於分隔線
+  // --- Utils ---
+  function switchView(id) {
+    document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function genId() {
+    const d = new Date();
+    return `Q-${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}-${d.getTime().toString().slice(-4)}`;
+  }
+  function p2(n) { return String(n).padStart(2,'0'); }
+  function fmtCurrency(n) { return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',minimumFractionDigits:0}).format(n); }
+  function fmtMinguo(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getFullYear()-1911}年 ${d.getMonth()+1}月 ${d.getDate()}日`;
+  }
+  function toChineseMoney(num) {
+    const chars = '零壹貳參肆伍陸柒捌玖', units = '元拾佰仟萬拾佰仟億';
+    let str = '', i = 0, s = Math.round(num).toString();
+    for (let j = s.length-1; j >= 0; j--) str = chars[s[j]] + units[i++] + str;
+    return str.replace(/零[拾佰仟]/g,'零').replace(/零{2,}/g,'零').replace(/(零|)萬/g,'萬')
+              .replace(/(零|)億/g,'億').replace(/億萬/g,'億').replace(/零元/g,'元')
+              .replace(/^元/g,'').replace(/元$/g,'元整');
+  }
+  // Returns 7-digit array [百萬,十萬,萬,千,百,十,元]
+  function digits7(n) { return String(Math.round(n)).padStart(7,'0').split('').slice(-7); }
 
-                // 3. 套用樣式
-                // 公司名稱 (A1)
-                if(ws['A1']) ws['A1'].s = { font: { name: "新細明體", sz: 26, bold: true }, alignment: { horizontal: "center", vertical: "center" } };
-                // 估價單 (A2)
-                if(ws['A2']) ws['A2'].s = { font: { name: "新細明體", sz: 22, bold: true }, alignment: { horizontal: "center", vertical: "center" } };
+  // --- Render sidebar ---
+  function renderFolders() {
+    const grouped = quotes.reduce((a,q) => { (a[q.customerContactName] = a[q.customerContactName]||[]).push(q); return a; }, {});
+    folderList.innerHTML = '';
+    const clients = Object.keys(grouped).sort();
+    if (!clients.length) { folderList.innerHTML = '<p style="color:var(--secondary);padding:14px">尚無客戶資料</p>'; }
+    clients.forEach(name => {
+      const li = document.createElement('li');
+      li.dataset.client = name;
+      li.innerHTML = `<span class="client-name-wrapper">${name}</span><button class="del-folder-btn" title="刪除">🗑️</button>`;
+      folderList.appendChild(li);
+    });
+    filterFolders();
+  }
 
-                // 處理範圍
-                const range = XLSX.utils.decode_range(ws['!ref']);
-                for (let R = 3; R <= range.e.r; ++R) {
-                    for (let C = 0; C <= range.e.c; ++C) {
-                        const cell = ws[XLSX.utils.encode_cell({ c: C, r: R })];
-                        if (!cell) continue;
-                        if (!cell.s) cell.s = {};
+  function filterFolders() {
+    const term = folderSearch.value.trim().toLowerCase();
+    folderList.querySelectorAll('li').forEach(li => {
+      li.style.display = li.dataset.client.toLowerCase().includes(term) ? 'flex' : 'none';
+    });
+  }
 
-                        // 預設字型
-                        cell.s.font = fontNormal;
-                        cell.s.alignment = { vertical: "center" };
+  function renderQuoteList(clientName) {
+    activeClient = clientName;
+    listTitle.textContent = `客戶：${clientName}`;
+    let list = quotes.filter(q => q.customerContactName === clientName);
+    const term = quoteSearch.value.trim().toLowerCase();
+    const mode = quoteSearchMode.value;
+    if (term) {
+      list = list.filter(q => mode === 'id'
+        ? q.id.toLowerCase().includes(term)
+        : (q.projectName||'').toLowerCase().includes(term) || q.items.some(i => i.description.toLowerCase().includes(term))
+      );
+    }
+    list.sort((a,b) => new Date(b.date) - new Date(a.date));
+    quoteTbody.innerHTML = '';
+    if (!list.length) {
+      quoteTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px">找不到符合的報價單</td></tr>';
+    } else {
+      list.forEach(q => {
+        const sub = q.items.reduce((s,i) => s + i.quantity*i.unitPrice, 0);
+        const total = Math.round(sub * 1.05);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${q.id}</td><td>${new Date(q.date).toLocaleDateString('zh-TW')}</td>
+          <td>${q.projectName||'未命名'}</td><td>${fmtCurrency(total)}</td>
+          <td>
+            <div class="tilt-container"><button class="gbtn action-btn edit-btn" data-id="${q.id}">修改</button></div>
+            <div class="tilt-container"><button class="gbtn action-btn html-btn" data-id="${q.id}" style="background:rgba(0,0,0,.15)">預覽列印</button></div>
+            <div class="tilt-container"><button class="gbtn action-btn xlsx-btn" data-id="${q.id}" style="background:rgba(0,0,0,.15)">下載 XLSX</button></div>
+          </td>`;
+        quoteTbody.appendChild(tr);
+      });
+    }
+    switchView('quote-list-view');
+    initTilt();
+    closeSidebarMobile();
+  }
 
-                        // 資訊欄位 (Row 3, 4)
-                        if (R === 3) { // 業主 row
-                             if (C >= 3) cell.s.alignment.horizontal = "left"; // 工作地點靠左
-                        }
-                        if (R === 4) { // 工程名稱 row - 下方加粗線
-                            cell.s.border = borderBottomThick;
-                            if (C >= 3) cell.s.alignment.horizontal = "right"; // 日期靠右
-                        }
+  // --- Item rows ---
+  function addItemRow(item = null) {
+    const uid = `item-${Date.now()}-${Math.random().toString(36).slice(2,5)}`;
+    const div = document.createElement('div');
+    div.className = 'item-row'; div.id = uid;
+    div.innerHTML = `
+      <div class="form-group" style="flex:3;min-width:130px"><label>項目描述</label><input type="text" class="i-desc" placeholder="工程項目名稱" value="${item?.description||''}"></div>
+      <div class="form-group" style="flex:1;min-width:65px"><label>數量</label><input type="number" class="i-qty" min="0" step="any" value="${item?.quantity??1}"></div>
+      <div class="form-group" style="flex:1;min-width:65px"><label>單位</label><input type="text" class="i-unit" placeholder="式/m/個" value="${item?.unit||''}"></div>
+      <div class="form-group" style="flex:1.5;min-width:90px"><label>單價</label><input type="number" class="i-price" min="0" step="any" placeholder="0" value="${item?.unitPrice??''}"></div>
+      <div class="form-group" style="flex:1.5;min-width:90px"><label>備註</label><input type="text" class="i-remark" value="${item?.remark||''}"></div>
+      <div class="tilt-container"><button type="button" class="gbtn btn-del" onclick="document.getElementById('${uid}').remove()">✕</button></div>`;
+    itemsContainer.appendChild(div);
+    initTilt();
+  }
 
-                        // 表格標頭 (Row 6)
-                        if (R === 6) {
-                            cell.s.font = { name: "新細明體", sz: 12, bold: true };
-                            cell.s.alignment = { horizontal: "center", vertical: "center" };
-                            cell.s.border = borderAll;
-                        }
+  function loadQuoteForm(id) {
+    const q = quotes.find(q => q.id === id);
+    if (!q) return;
+    editId = id;
+    document.getElementById('f-contact').value = q.customerContactName;
+    document.getElementById('f-company').value = q.customerCompanyName||'';
+    document.getElementById('f-project').value = q.projectName||'';
+    document.getElementById('f-address').value = q.customerAddress||'';
+    document.getElementById('f-taxid').value = q.customerTaxId||'';
+    document.getElementById('f-phone').value = q.customerPhone||'';
+    document.getElementById('f-remarks').value = q.remarks||'';
+    itemsContainer.innerHTML = '<h4>報價項目</h4>';
+    q.items.forEach(i => addItemRow(i));
+    formTitle.textContent = `修改報價單 #${id}`;
+    btnSave.textContent = '儲存變更';
+    switchView('add-quote-view');
+    closeSidebarMobile();
+  }
 
-                        // 表格內容 (Row 7-33)
-                        if (R > 6 && R < 34) {
-                            cell.s.border = borderAll;
-                            if (C === 0 || C === 2 || C === 3) cell.s.alignment.horizontal = "center";
-                            if (C === 4 || C === 5) {
-                                cell.s.alignment.horizontal = "right";
-                                if (cell.t === 'n') cell.s.numFmt = "#,##0";
-                            }
-                        }
+  // ============================================================
+  // HTML EXPORT — 完全仿照圖片格式
+  // ============================================================
+  function exportHTML(id) {
+    const q = quotes.find(q => q.id === id);
+    if (!q) return;
+    const sub = q.items.reduce((s,i) => s + i.quantity*i.unitPrice, 0);
+    const grand = Math.round(sub * 1.05);
+    const d = digits7(grand);
 
-                        // 總計行 (Row 34)
-                        if (R === 34) {
-                            cell.s.border = borderAll;
-                            cell.s.font = { name: "新細明體", sz: 12, bold: true };
-                            if (C === 0) cell.s.alignment.horizontal = "left";
-                            if (C >= 2) cell.s.alignment.horizontal = "right";
-                            if (C === 6) {
-                                cell.s.font = { name: "新細明體", sz: 14, bold: true };
-                                cell.s.numFmt = '"NT$"#,##0';
-                            }
-                        }
+    let rows = '';
+    q.items.forEach((item, idx) => {
+      const lt = item.quantity * item.unitPrice;
+      rows += `<tr><td class="c">${idx+1}</td><td class="l">${item.description||''}</td>
+        <td class="c">${item.quantity!=null?item.quantity:''}</td><td class="c">${item.unit||''}</td>
+        <td class="r">${item.unitPrice?item.unitPrice.toLocaleString():''}</td>
+        <td class="r">${lt?lt.toLocaleString():''}</td><td class="l">${item.remark||''}</td></tr>`;
+    });
+    for (let i = q.items.length; i < 27; i++) {
+      rows += `<tr><td class="c">${i+1}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
 
-                        // 頁尾 (Row 36+)
-                        if (R >= 36) {
-                             cell.s.font = { name: "新細明體", sz: 12 }; // 頁尾字體改為 12
-                             if (C === 4) cell.s.alignment.horizontal = "right"; // 頁碼靠右
-                        }
-                    }
-                }
+    // 顯示數字位（隱藏前置零）
+    function showDigit(i) {
+      for (let j = 0; j < i; j++) if (d[j] !== '0') return d[i];
+      return d[i] === '0' ? '' : d[i];
+    }
 
-                // 4. 設定合併、欄寬、列高
-                ws['!merges'] = [
-                    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // A1:G1
-                    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }, // A2:G2
-                    { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, // A4:C4 (業主)
-                    { s: { r: 3, c: 3 }, e: { r: 3, c: 6 } }, // D4:G4 (地點)
-                    { s: { r: 4, c: 0 }, e: { r: 4, c: 2 } }, // A5:C5 (工程)
-                    { s: { r: 4, c: 3 }, e: { r: 4, c: 6 } }, // D5:G5 (日期)
-                    { s: { r: 34, c: 0 }, e: { r: 34, c: 1 } }, // A35:B35 (總價文字)
-                    { s: { r: 34, c: 2 }, e: { r: 34, c: 4 } }, // C35:E35 (總計標籤)
-                    { s: { r: 34, c: 5 }, e: { r: 34, c: 6 } }, // F35:G35 (金額)
-                    { s: { r: 36, c: 0 }, e: { r: 36, c: 1 } },
-                    { s: { r: 36, c: 2 }, e: { r: 36, c: 3 } },
-                    { s: { r: 36, c: 4 }, e: { r: 36, c: 6 } },
-                    { s: { r: 37, c: 0 }, e: { r: 37, c: 1 } },
-                    { s: { r: 37, c: 2 }, e: { r: 37, c: 3 } },
-                    { s: { r: 37, c: 4 }, e: { r: 37, c: 6 } }
-                ];
-                
-                // 仿照圖片調整欄寬
-                ws['!cols'] = [ 
-                    { wch: 5 },  // 項目
-                    { wch: 45 }, // 名稱 (加寬)
-                    { wch: 8 },  // 數量
-                    { wch: 8 },  // 單位
-                    { wch: 12 }, // 單價
-                    { wch: 15 }, // 總價
-                    { wch: 20 }  // 備註
-                ];
-                
-                ws['!rows'] = [];
-                ws['!rows'][0] = { hpt: 40 }; // 標題高
-                ws['!rows'][1] = { hpt: 35 }; // 副標題高
-                for(let i=6; i<=34; i++) ws['!rows'][i] = { hpt: 25 }; // 表格行高
-                ws['!rows'][36] = { hpt: 24 }; // 頁尾行高
-                ws['!rows'][37] = { hpt: 24 }; // 頁尾行高
+    const html = `<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="UTF-8">
+<title>估價單-${q.projectName||q.customerContactName}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'新細明體',PMingLiU,'細明體',serif;padding:12mm 14mm 10mm;font-size:11pt;color:#000;background:#fff}
+.page{max-width:190mm;margin:0 auto}
+h1{text-align:center;font-size:20pt;font-weight:bold;letter-spacing:3px;margin-bottom:2px}
+h2{text-align:center;font-size:17pt;font-weight:bold;letter-spacing:6px;margin-bottom:8px}
+.info{width:100%;border-collapse:collapse}
+.info td{padding:3px 5px;font-size:10.5pt}
+.info tr:first-child td{border-bottom:1px solid #000}
+.info tr:last-child td{border-bottom:2px solid #000}
+table.main{width:100%;border-collapse:collapse}
+table.main th,table.main td{border:1px solid #000;padding:3px 5px;font-size:10pt}
+table.main th{font-weight:bold;text-align:center;height:20pt}
+table.main td{height:19pt}
+.c{text-align:center}.l{text-align:left}.r{text-align:right}
+.total-hdr td,.total-val td{border:1px solid #000;font-size:9.5pt}
+.total-hdr td{text-align:center;font-size:9pt;padding:2px 4px;font-weight:bold}
+.total-val td{text-align:center;font-size:12pt;font-weight:bold;height:20pt}
+.total-val td.txt{text-align:left;font-size:9.5pt;font-weight:normal;padding:2px 5px}
+.footer{width:100%;border-collapse:collapse;margin-top:6px}
+.footer td{font-size:9.5pt;padding:2px 4px}
+@media print{body{padding:8mm 10mm}@page{size:A4 portrait;margin:0}}
+</style></head><body>
+<div class="page">
+<h1>${company.name||'公司名稱'}</h1>
+<h2>估　價　單</h2>
+<table class="info">
+  <tr>
+    <td width="18%">業　主：${q.customerContactName||''}</td>
+    <td width="28%">&nbsp;</td>
+    <td width="12%">工作地點</td>
+    <td width="42%">${q.customerAddress||''}</td>
+  </tr>
+  <tr>
+    <td>工程名稱：</td>
+    <td>${q.projectName||''}</td>
+    <td>估價日期</td>
+    <td style="text-align:right">${fmtMinguo(q.date)}</td>
+  </tr>
+</table>
+<table class="main">
+<thead><tr>
+  <th width="6%">項目</th><th width="38%">名　稱</th>
+  <th width="8%">數量</th><th width="7%">單位</th>
+  <th width="13%">單價</th><th width="13%">總價</th><th width="15%">備註</th>
+</tr></thead>
+<tbody>
+${rows}
+<tr class="total-hdr">
+  <td colspan="2" class="l" style="font-size:9pt">總價合計</td>
+  <td>佰</td><td>拾</td><td>萬</td>
+  <td style="letter-spacing:4px">仟　佰　拾</td>
+  <td>NT</td>
+</tr>
+<tr class="total-val">
+  <td colspan="2" class="txt">總價新台幣：${toChineseMoney(grand)}</td>
+  <td>${showDigit(0)}</td><td>${showDigit(1)}</td><td>${d[2]}</td>
+  <td style="letter-spacing:4px">${d[3]}　${d[4]}　${d[5]}</td>
+  <td>${d[6]}</td>
+</tr>
+</tbody>
+</table>
+<table class="footer">
+  <tr>
+    <td width="44%">地址：${company.address||''}</td>
+    <td width="30%">統一編號：${company.taxId||''}</td>
+    <td width="26%" style="text-align:right">第　　頁，共　　頁</td>
+  </tr>
+  <tr>
+    <td>電話：${company.phone||''}</td>
+    <td>傳真：${company.fax||''}</td>
+    <td style="text-align:right">經理人：${company.agent||''}</td>
+  </tr>
+</table>
+${q.remarks?`<p style="margin-top:8px;font-size:9.5pt"><strong>備註：</strong>${q.remarks}</p>`:''}
+<p class="no-print" style="text-align:center;margin-top:20px;font-family:sans-serif">
+  <button onclick="window.print()" style="padding:9px 28px;font-size:13pt;cursor:pointer;border-radius:6px;border:1px solid #888">🖨️ 列印此報價單</button>
+</p>
+</div></body></html>`;
+    const w = window.open('','_blank');
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  }
 
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, '估價單');
-                XLSX.writeFile(wb, `估價單-${q.projectName || q.customerContactName}.xlsx`);
-            }
+  // ============================================================
+  // XLSX EXPORT — 完全仿照圖片格式
+  // ============================================================
+  function exportXLSX(id) {
+    const q = quotes.find(q => q.id === id);
+    if (!q) return;
+    const sub = q.items.reduce((s,i) => s + i.quantity*i.unitPrice, 0);
+    const grand = Math.round(sub * 1.05);
+    const d = digits7(grand);
 
-            async function downloadAllAsZip(){if(quotes.length===0){alert('沒有任何報價單可供備份。');return}downloadAllZipBtn.disabled=!0;downloadAllZipBtn.textContent='正在處理中...';try{const z=new JSZip(),g=quotes.reduce((a,q)=>{const c=q.customerContactName;if(!a[c])a[c]=[];a[c].push(q);return a},{});for(const n in g){const f=z.folder(n);for(const q of g[n]){const c=generateCSVContent(q);f.file(`報價單-${q.id}.csv`,c)}}const b=await z.generateAsync({type:"blob"}),l=document.createElement("a");l.href=URL.createObjectURL(b);l.download=`報價單備份-${new Date().toISOString().slice(0,10)}.zip`;document.body.appendChild(l);l.click();document.body.removeChild(l)}catch(e){console.error("ZIP 備份失敗:",e);alert("備份失敗，請查看控制台錯誤訊息。")}finally{downloadAllZipBtn.disabled=!1;downloadAllZipBtn.textContent='一鍵備份所有報價單 (ZIP)'}}
-            
-            showAddQuoteViewBtn.addEventListener('click',()=>{currentEditQuoteId=null;quoteForm.reset();itemsContainer.innerHTML='<h4>報價項目</h4>';addNewItemRow();addQuoteViewTitle.textContent='建立新的報價單';saveQuoteBtn.textContent='儲存報價單';document.querySelectorAll('#client-folder-list li').forEach(i=>i.classList.remove('active'));switchView('add-quote-view')});
-            addItemBtn.addEventListener('click',()=>addNewItemRow());
-            quoteForm.addEventListener('submit',e=>{
-                e.preventDefault();
-                const n=document.getElementById('customer-contact-name').value.trim();
-                if(!n){alert('業主/客戶名稱為必填欄位！');return}
-                const items=[];
-                document.querySelectorAll('.item-row').forEach(r=>{
-                    const description=r.querySelector('.item-description').value.trim();
-                    const quantity=parseFloat(r.querySelector('.item-quantity').value);
-                    const unit=r.querySelector('.item-unit').value.trim();
-                    const unitPrice=parseFloat(r.querySelector('.item-unit-price').value);
-                    const remark=r.querySelector('.item-remark').value.trim();
-                    if(description && quantity > 0 && unitPrice >= 0) items.push({description, quantity, unit, unitPrice, remark});
-                });
-                if(items.length===0){alert('請至少新增一個報價項目並正確填寫！');return}
-                const data={
-                    customerContactName:n,
-                    customerCompanyName:document.getElementById('customer-company-name').value.trim(),
-                    projectName:document.getElementById('project-name').value.trim(),
-                    customerAddress:document.getElementById('customer-address').value.trim(),
-                    customerTaxId:document.getElementById('customer-tax-id').value.trim(),
-                    customerPhone:document.getElementById('customer-phone').value.trim(),
-                    remarks:document.getElementById('remarks').value.trim(),
-                    items:items
-                };
-                if(currentEditQuoteId){
-                    const x=quotes.findIndex(q=>q.id===currentEditQuoteId);
-                    if(x!==-1){const o=quotes[x];quotes[x]={...o,...data};alert(`報價單 #${currentEditQuoteId} 已成功更新！`)}
-                } else {
-                    const q={...data,id:generateQuoteId(),date:new Date().toISOString()};
-                    quotes.push(q);alert(`客戶「${n}」的報價單已成功建立！`);
-                }
-                saveDataToStorage();renderClientFolders();currentEditQuoteId=null;
-                const l=clientFolderList.querySelector(`li[data-client="${n}"]`);
-                if(l)l.click()
-            });
-            document.body.addEventListener('click',function(e){
-                const t=e.target.closest('.action-btn');
-                if(!t)return;
-                if(t.classList.contains('export-html-btn')){exportQuoteAsHTML(t.dataset.quoteId)}
-                if(t.classList.contains('download-xlsx-btn')){exportQuoteAsXLSX(t.dataset.quoteId)}
-                if(t.classList.contains('edit-quote-btn')){loadQuoteIntoForm(t.dataset.quoteId)}
-            });
-            downloadAllZipBtn.addEventListener('click',downloadAllAsZip);
-            clientFolderList.addEventListener('click',function(e){const t=e.target,p=t.closest('li');if(!p)return;if(t.classList.contains('delete-folder-btn')){e.stopPropagation();const n=p.dataset.client;deleteClientData(n)}else{document.querySelectorAll('#client-folder-list li').forEach(i=>i.classList.remove('active'));p.classList.add('active');quoteSearchInput.value = ''; renderQuoteListForClient(p.dataset.client)}});
-            settingsBtn.addEventListener('click',()=>{
-                document.getElementById('my-company-name').value=myCompanyInfo.name||'';
-                document.getElementById('my-company-tax-id').value=myCompanyInfo.taxId||'';
-                document.getElementById('my-company-address').value=myCompanyInfo.address||'';
-                document.getElementById('my-company-phone').value=myCompanyInfo.phone||'';
-                document.getElementById('my-company-fax').value=myCompanyInfo.fax||'';
-                document.getElementById('my-company-email').value=myCompanyInfo.email||'';
-                document.getElementById('my-company-agent').value=myCompanyInfo.agent||'';
-                settingsOverlay.classList.add('active')
-            });
-            const closeModal=()=>settingsOverlay.classList.remove('active');closeSettingsBtn.addEventListener('click',closeModal);settingsOverlay.addEventListener('click',e=>{if(e.target===settingsOverlay)closeModal()});
-            saveSettingsBtn.addEventListener('click',()=>{
-                myCompanyInfo={
-                    name:document.getElementById('my-company-name').value.trim(),
-                    taxId:document.getElementById('my-company-tax-id').value.trim(),
-                    address:document.getElementById('my-company-address').value.trim(),
-                    phone:document.getElementById('my-company-phone').value.trim(),
-                    fax:document.getElementById('my-company-fax').value.trim(),
-                    email:document.getElementById('my-company-email').value.trim(),
-                    agent:document.getElementById('my-company-agent').value.trim()
-                };
-                saveDataToStorage();alert('您的公司資訊已成功儲存！');closeModal()
-            });
-            folderSearchInput.addEventListener('input', filterClientFolders);
-            quoteSearchInput.addEventListener('input', () => { if (activeClientName) renderQuoteListForClient(activeClientName) });
-            quoteSearchMode.addEventListener('change', () => { if (activeClientName) renderQuoteListForClient(activeClientName) });
+    // Row index constants
+    const R_COMPANY = 0, R_TITLE = 1, R_BLANK1 = 2;
+    const R_INFO1 = 3, R_INFO2 = 4, R_BLANK2 = 5;
+    const R_HEADER = 6;
+    const R_ITEMS_START = 7;
+    const ITEM_COUNT = 27;
+    const R_ITEMS_END = R_ITEMS_START + ITEM_COUNT - 1; // 33
+    const R_TOT_HDR = R_ITEMS_END + 1; // 34
+    const R_TOT_VAL = R_ITEMS_END + 2; // 35
+    const R_BLANK3 = R_TOT_VAL + 1;   // 36
+    const R_FOOT1 = R_BLANK3 + 1;     // 37
+    const R_FOOT2 = R_FOOT1 + 1;      // 38
 
-            function initialize(){ 
-                loadDataFromStorage(); 
-                renderClientFolders();
-                initializeTiltEffects();
-            }
-            initialize();
-        });
-    </script>
+    function showDigit(i) {
+      for (let j = 0; j < i; j++) if (d[j] !== '0') return parseInt(d[i]);
+      return d[i] === '0' ? null : parseInt(d[i]);
+    }
+
+    const data = [];
+    data[R_COMPANY] = [company.name||'公司名稱', null,null,null,null,null,null];
+    data[R_TITLE]   = ['估　價　單', null,null,null,null,null,null];
+    data[R_BLANK1]  = [null,null,null,null,null,null,null];
+    data[R_INFO1]   = [`業　主：${q.customerContactName||''}`, null, null, `工作地點：${q.customerAddress||''}`, null, null, null];
+    data[R_INFO2]   = [`工程名稱：${q.projectName||''}`, null, null, `估價日期：${fmtMinguo(q.date)}`, null, null, null];
+    data[R_BLANK2]  = [null,null,null,null,null,null,null];
+    data[R_HEADER]  = ['項目','名　稱','數量','單位','單價','總價','備註'];
+
+    for (let i = 0; i < ITEM_COUNT; i++) {
+      const item = q.items[i];
+      data[R_ITEMS_START + i] = item
+        ? [i+1, item.description||'', item.quantity||null, item.unit||'', item.unitPrice||null, (item.quantity*item.unitPrice)||null, item.remark||'']
+        : [i+1, null, null, null, null, null, null];
+    }
+
+    // 總價合計標頭列
+    data[R_TOT_HDR] = ['總價合計', null, '佰', '拾', '萬', '仟　佰　拾', 'NT'];
+    // 總價值列
+    data[R_TOT_VAL] = [
+      `總價新台幣：${toChineseMoney(grand)}`,
+      null,
+      showDigit(0),
+      showDigit(1),
+      parseInt(d[2]),
+      `${d[3]}　${d[4]}　${d[5]}`,
+      parseInt(d[6])
+    ];
+    data[R_BLANK3]  = [null,null,null,null,null,null,null];
+    data[R_FOOT1]   = [`地址：${company.address||''}`, null, `統一編號：${company.taxId||''}`, null, '第　　頁，共　　頁', null, null];
+    data[R_FOOT2]   = [`電話：${company.phone||''}`, null, `傳真：${company.fax||''}`, null, `經理人：${company.agent||''}`, null, null];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // --- Style helpers ---
+    const fn = (sz, bold=false) => ({name:'新細明體', sz, bold});
+    const al = (h, v='center', wrap=false) => ({horizontal:h, vertical:v, wrapText:wrap});
+    const bd = (s='thin') => ({top:{style:s},bottom:{style:s},left:{style:s},right:{style:s}});
+    const bdB = (s='thin') => ({bottom:{style:s}});
+
+    function sc(r, c, style) {
+      const a = XLSX.utils.encode_cell({r,c});
+      if (!ws[a]) ws[a] = {t:'z', v:null};
+      ws[a].s = style;
+    }
+    function gs(r, c) {
+      const a = XLSX.utils.encode_cell({r,c});
+      return ws[a] || null;
+    }
+
+    // Company name
+    sc(R_COMPANY, 0, {font:fn(22,true), alignment:al('center')});
+    // Title
+    sc(R_TITLE, 0, {font:fn(18,true), alignment:al('center')});
+
+    // Info rows 3-4: apply bottom border to all cells
+    for (let c = 0; c < 7; c++) {
+      sc(R_INFO1, c, {font:fn(11), alignment:al('left','center'), border:bdB('thin')});
+      sc(R_INFO2, c, {font:fn(11), alignment:al('left','center'), border:bdB('medium')});
+    }
+    // 日期靠右
+    sc(R_INFO2, 3, {font:fn(11), alignment:al('right','center'), border:bdB('medium')});
+
+    // Header row
+    const hAligns = ['center','left','center','center','right','right','left'];
+    for (let c = 0; c < 7; c++) {
+      sc(R_HEADER, c, {font:fn(11,true), alignment:al(hAligns[c]), border:bd('thin')});
+    }
+
+    // Item rows
+    const iAligns = ['center','left','center','center','right','right','left'];
+    for (let r = R_ITEMS_START; r <= R_ITEMS_END; r++) {
+      for (let c = 0; c < 7; c++) {
+        const a = XLSX.utils.encode_cell({r,c});
+        if (!ws[a]) ws[a] = {t:'z', v:null};
+        ws[a].s = {font:fn(10), alignment:al(iAligns[c]), border:bd('thin')};
+        if ((c===4||c===5) && ws[a].t==='n') ws[a].s.numFmt = '#,##0';
+      }
+    }
+
+    // Total header row (R_TOT_HDR)
+    sc(R_TOT_HDR, 0, {font:fn(10,true), alignment:al('left'), border:bd('thin')});
+    sc(R_TOT_HDR, 1, {font:fn(10,true), alignment:al('left'), border:bd('thin')});
+    for (let c = 2; c < 7; c++) {
+      sc(R_TOT_HDR, c, {font:fn(9,true), alignment:al('center'), border:bd('thin')});
+    }
+
+    // Total value row (R_TOT_VAL)
+    sc(R_TOT_VAL, 0, {font:fn(10), alignment:al('left','center',true), border:bd('thin')});
+    sc(R_TOT_VAL, 1, {font:fn(10), alignment:al('left'), border:bd('thin')});
+    for (let c = 2; c < 7; c++) {
+      const a = XLSX.utils.encode_cell({r:R_TOT_VAL,c});
+      if (!ws[a]) ws[a] = {t:'z', v:null};
+      ws[a].s = {font:fn(13,true), alignment:al('center'), border:bd('thin')};
+    }
+
+    // Footer
+    for (let r = R_FOOT1; r <= R_FOOT2; r++) {
+      for (let c = 0; c < 7; c++) {
+        const a = XLSX.utils.encode_cell({r,c});
+        if (!ws[a]) ws[a] = {t:'z', v:null};
+        ws[a].s = {font:fn(10), alignment:{vertical:'center'}};
+      }
+      const rA = XLSX.utils.encode_cell({r, c:4});
+      if (ws[rA]) ws[rA].s = {font:fn(10), alignment:al('right','center')};
+    }
+
+    // --- Merges ---
+    ws['!merges'] = [
+      {s:{r:R_COMPANY,c:0}, e:{r:R_COMPANY,c:6}},
+      {s:{r:R_TITLE,c:0},   e:{r:R_TITLE,c:6}},
+      {s:{r:R_INFO1,c:0},   e:{r:R_INFO1,c:2}},
+      {s:{r:R_INFO1,c:3},   e:{r:R_INFO1,c:6}},
+      {s:{r:R_INFO2,c:0},   e:{r:R_INFO2,c:2}},
+      {s:{r:R_INFO2,c:3},   e:{r:R_INFO2,c:6}},
+      {s:{r:R_TOT_HDR,c:0}, e:{r:R_TOT_HDR,c:1}},
+      {s:{r:R_TOT_VAL,c:0}, e:{r:R_TOT_VAL,c:1}},
+      {s:{r:R_FOOT1,c:0},   e:{r:R_FOOT1,c:1}},
+      {s:{r:R_FOOT1,c:2},   e:{r:R_FOOT1,c:3}},
+      {s:{r:R_FOOT1,c:4},   e:{r:R_FOOT1,c:6}},
+      {s:{r:R_FOOT2,c:0},   e:{r:R_FOOT2,c:1}},
+      {s:{r:R_FOOT2,c:2},   e:{r:R_FOOT2,c:3}},
+      {s:{r:R_FOOT2,c:4},   e:{r:R_FOOT2,c:6}},
+    ];
+
+    // --- Column widths ---
+    ws['!cols'] = [
+      {wch:6},{wch:38},{wch:8},{wch:7},{wch:12},{wch:14},{wch:16}
+    ];
+
+    // --- Row heights ---
+    ws['!rows'] = [];
+    ws['!rows'][R_COMPANY] = {hpt:38};
+    ws['!rows'][R_TITLE]   = {hpt:32};
+    ws['!rows'][R_INFO1]   = {hpt:22};
+    ws['!rows'][R_INFO2]   = {hpt:22};
+    ws['!rows'][R_HEADER]  = {hpt:22};
+    for (let i = R_ITEMS_START; i <= R_ITEMS_END; i++) ws['!rows'][i] = {hpt:19};
+    ws['!rows'][R_TOT_HDR] = {hpt:17};
+    ws['!rows'][R_TOT_VAL] = {hpt:22};
+    ws['!rows'][R_FOOT1]   = {hpt:19};
+    ws['!rows'][R_FOOT2]   = {hpt:19};
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '估價單');
+    XLSX.writeFile(wb, `估價單-${q.projectName||q.customerContactName}-${q.id}.xlsx`);
+    showToast('XLSX 已下載', 'ok');
+  }
+
+  // --- CSV for ZIP ---
+  function genCSV(q) {
+    const sub = q.items.reduce((s,i) => s + i.quantity*i.unitPrice, 0);
+    const grand = Math.round(sub * 1.05);
+    const rows = [
+      ['報價單號',q.id],['建立日期',new Date(q.date).toLocaleDateString('zh-TW')],
+      ['業主',q.customerContactName],['公司',q.customerCompanyName||''],
+      ['工程名稱',q.projectName||''],['地址',q.customerAddress||''],
+      ['統編',q.customerTaxId||''],['電話',q.customerPhone||''],
+      [],['項目','名稱','數量','單位','單價','總價','備註'],
+      ...q.items.map((item,i) => [i+1,item.description,item.quantity,item.unit,item.unitPrice,item.quantity*item.unitPrice,item.remark||'']),
+      [],['稅前合計',sub],['含稅總計(5%)',grand],['備註',q.remarks||''],
+    ];
+    return '﻿' + rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  }
+
+  // --- ZIP ---
+  async function downloadZip() {
+    if (!quotes.length) { showToast('沒有報價單可備份', 'err'); return; }
+    btnZip.disabled = true;
+    btnZip.innerHTML = '<span class="spin"></span>處理中...';
+    try {
+      const zip = new JSZip();
+      const grouped = quotes.reduce((a,q) => { (a[q.customerContactName]=a[q.customerContactName]||[]).push(q); return a; }, {});
+      for (const name in grouped) {
+        const folder = zip.folder(name);
+        for (const q of grouped[name]) folder.file(`報價單-${q.id}.csv`, genCSV(q));
+      }
+      const blob = await zip.generateAsync({type:'blob'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `報價單備份-${new Date().toISOString().slice(0,10)}.zip`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showToast('ZIP 備份已下載', 'ok');
+    } catch(e) {
+      console.error(e); showToast('備份失敗', 'err');
+    } finally {
+      btnZip.disabled = false; btnZip.textContent = '一鍵備份所有報價單 (ZIP)';
+    }
+  }
+
+  // --- Events ---
+  btnNewQuote.addEventListener('click', () => {
+    editId = null; quoteForm.reset();
+    itemsContainer.innerHTML = '<h4>報價項目</h4>';
+    addItemRow();
+    formTitle.textContent = '建立新的報價單';
+    btnSave.textContent = '儲存報價單';
+    folderList.querySelectorAll('li').forEach(li => li.classList.remove('active'));
+    switchView('add-quote-view');
+    closeSidebarMobile();
+  });
+
+  btnAddItem.addEventListener('click', () => addItemRow());
+
+  quoteForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('f-contact').value.trim();
+    if (!name) { showToast('業主/客戶名稱為必填！', 'err'); return; }
+    const items = [];
+    document.querySelectorAll('.item-row').forEach(r => {
+      const desc = r.querySelector('.i-desc').value.trim();
+      const qty = parseFloat(r.querySelector('.i-qty').value) || 0;
+      const unit = r.querySelector('.i-unit').value.trim();
+      const price = parseFloat(r.querySelector('.i-price').value) || 0;
+      const remark = r.querySelector('.i-remark').value.trim();
+      if (desc) items.push({description:desc, quantity:qty, unit, unitPrice:price, remark});
+    });
+    if (!items.length) { showToast('請至少新增一個報價項目！', 'err'); return; }
+    const data = {
+      customerContactName: name,
+      customerCompanyName: document.getElementById('f-company').value.trim(),
+      projectName: document.getElementById('f-project').value.trim(),
+      customerAddress: document.getElementById('f-address').value.trim(),
+      customerTaxId: document.getElementById('f-taxid').value.trim(),
+      customerPhone: document.getElementById('f-phone').value.trim(),
+      remarks: document.getElementById('f-remarks').value.trim(),
+      items
+    };
+    if (editId) {
+      const idx = quotes.findIndex(q => q.id === editId);
+      if (idx !== -1) { quotes[idx] = {...quotes[idx], ...data}; showToast(`報價單 #${editId} 已更新`, 'ok'); }
+    } else {
+      quotes.push({...data, id:genId(), date:new Date().toISOString()});
+      showToast(`客戶「${name}」的報價單已建立`, 'ok');
+    }
+    save(); renderFolders(); editId = null;
+    const el = folderList.querySelector(`li[data-client="${name}"]`);
+    if (el) el.click();
+  });
+
+  document.body.addEventListener('click', e => {
+    const btn = e.target.closest('.action-btn');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.classList.contains('html-btn')) exportHTML(id);
+    if (btn.classList.contains('xlsx-btn')) exportXLSX(id);
+    if (btn.classList.contains('edit-btn')) loadQuoteForm(id);
+  });
+
+  btnZip.addEventListener('click', downloadZip);
+
+  folderList.addEventListener('click', e => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    if (e.target.classList.contains('del-folder-btn')) {
+      e.stopPropagation();
+      const name = li.dataset.client;
+      showConfirm(`確定要刪除客戶「${name}」的所有報價單嗎？此操作無法復原！`, () => {
+        quotes = quotes.filter(q => q.customerContactName !== name);
+        save(); renderFolders(); switchView('welcome-view');
+        showToast(`已刪除「${name}」`, 'err');
+      });
+    } else {
+      folderList.querySelectorAll('li').forEach(i => i.classList.remove('active'));
+      li.classList.add('active');
+      quoteSearch.value = '';
+      renderQuoteList(li.dataset.client);
+    }
+  });
+
+  settingsBtn.addEventListener('click', () => {
+    document.getElementById('s-name').value    = company.name    || '';
+    document.getElementById('s-taxid').value   = company.taxId  || '';
+    document.getElementById('s-address').value = company.address|| '';
+    document.getElementById('s-phone').value   = company.phone  || '';
+    document.getElementById('s-fax').value     = company.fax    || '';
+    document.getElementById('s-email').value   = company.email  || '';
+    document.getElementById('s-agent').value   = company.agent  || '';
+    settingsOverlay.classList.add('active');
+  });
+
+  const closeSettings = () => settingsOverlay.classList.remove('active');
+  btnCloseSettings.addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) closeSettings(); });
+
+  btnSaveSettings.addEventListener('click', () => {
+    company = {
+      name:    document.getElementById('s-name').value.trim(),
+      taxId:   document.getElementById('s-taxid').value.trim(),
+      address: document.getElementById('s-address').value.trim(),
+      phone:   document.getElementById('s-phone').value.trim(),
+      fax:     document.getElementById('s-fax').value.trim(),
+      email:   document.getElementById('s-email').value.trim(),
+      agent:   document.getElementById('s-agent').value.trim(),
+    };
+    save(); showToast('公司資訊已儲存', 'ok'); closeSettings();
+  });
+
+  folderSearch.addEventListener('input', filterFolders);
+  quoteSearch.addEventListener('input', () => { if (activeClient) renderQuoteList(activeClient); });
+  quoteSearchMode.addEventListener('change', () => { if (activeClient) renderQuoteList(activeClient); });
+
+  // Init
+  load(); renderFolders(); initTilt();
+});
+</script>
 </body>
 </html>
